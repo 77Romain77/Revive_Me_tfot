@@ -80,11 +80,14 @@ public class FallEvent {
                 player.removeEffect(MobEffectInit.FALLEN_EFFECT);
             }
 
-            //Save all of their potion effects
+            //Remember the effects that are allowed to stay active while fallen.
+            instance.captureFallenEffects(player);
+
+            //Save all other potion effects for the optional restore-on-revive behavior.
             if (ReviveMeConfig.revertEffectsOnRevive){
                 instance.saveEffects(player);
             }
-            instance.removeOriginalEffects(true);
+            instance.removeOriginalEffects(true, true);
 
             //Give them all the downed effects.
             modifyPotionEffects(player);
