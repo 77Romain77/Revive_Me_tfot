@@ -49,6 +49,7 @@ public class FallenCapability {
     public static final String SAVED_EFFECTS_TAG = "savedEffectsTag";
     public static final String DOWNED_BY_PLAYER_BOOL = "DOWNED_BY_PLAYER_BOOL";
     public static final String IS_EFFECTS_REMOVED = "IS_EFFECTS_REMOVED";
+    public static final String KEPT_FALLEN_EFFECTS_TAG = "KEPT_FALLEN_EFFECTS_TAG";
 
     public static final String SELF_REVIVE_OPTIONS_STRING = "SELF_REVIVE_OPTIONS_STRING";
     public static final String SACRIFICEITEMS_COMPOUND = "SACRIFICEITEMS_COMPOUND";
@@ -91,6 +92,7 @@ public class FallenCapability {
     protected int penaltyMultiplier = 0;
 
     protected CompoundTag savedEffectsTag = new CompoundTag();
+    protected List<String> keptFallenEffects = new ArrayList<>();
 
     public enum PENALTYPE  {
         NONE,
@@ -137,6 +139,7 @@ public class FallenCapability {
             SetTimeLeft(0, 1, false);
             setOtherPlayerAndItem(null, null);
             this.calledForHelpTime = 0;
+            this.keptFallenEffects.clear();
             if (this.player == null) return;
             this.player.setForcedPose(null); //Mixin will assign the correct pose (PlayerMixin)
         }
@@ -180,12 +183,61 @@ public class FallenCapability {
 
 
 
+    public void captureFallenEffects(Player player) {
+        this.keptFallenEffects.clear();
+
+        for (MobEffectInstance effectInstance : new ArrayList<>(player.getActiveEffects())) {
+            MobEffect effect = effectInstance.getEffect();
+            if (!shouldKeepEffectWhileFallen(effect)) continue;
+
+            ResourceLocation effectLocation = ForgeRegistries.MOB_EFFECTS.getKey(effect);
+            if (effectLocation == null) continue;
+            this.keptFallenEffects.add(effectLocation.toString());
+        }
+    }
+
+    public boolean shouldKeepEffectWhileFallen(MobEffect effect) {
+        List<? extends String> effectList = ReviveMeConfig.fallenEffectBlacklist;
+        if (effectList == null) return false;
+
+        boolean isWhitelist = effectList.contains("//");
+        List<String> effectTypeList = effectList.stream()
+                .filter(s -> StringUtils.countMatches(s, ";") == 2)
+                .map(s -> s.replace(";", ""))
+                .collect(Collectors.toList());
+
+        boolean hasMatch = effectTypeList.contains(effect.getCategory().toString());
+        if (!hasMatch) {
+            ResourceLocation effectLocation = ForgeRegistries.MOB_EFFECTS.getKey(effect);
+            if (effectLocation != null) {
+                String effectString = effectLocation.toString();
+                hasMatch = effectList.stream()
+                        .filter(listString -> !listString.equals("//"))
+                        .filter(listString -> StringUtils.countMatches(listString, ";") != 2)
+                        .anyMatch(effectString::contains);
+            }
+        }
+
+        return isWhitelist == hasMatch;
+    }
+
+    public boolean isKeptFallenEffect(MobEffect effect) {
+        ResourceLocation effectLocation = ForgeRegistries.MOB_EFFECTS.getKey(effect);
+        return effectLocation != null && this.keptFallenEffects.contains(effectLocation.toString());
+    }
+
     public void removeOriginalEffects(boolean reset) {
+        removeOriginalEffects(reset, false);
+    }
+
+    public void removeOriginalEffects(boolean reset, boolean preserveKeptFallenEffects) {
         if (reset) this.isEffectsRemoved = false;
         if (this.isEffectsRemoved) return;
 
         this.isEffectsRemoved = true;
         for (var effect : new ArrayList<>(this.player.getActiveEffectsMap().keySet())) {
+            if (preserveKeptFallenEffects && isKeptFallenEffect(effect)) continue;
+
             try {
                 this.player.removeEffect(effect);
             } catch (Exception e) {
@@ -790,6 +842,8 @@ public class FallenCapability {
                 .map(s -> s.replace(";", "")).collect(Collectors.toList());
 
         for (MobEffectInstance effectInstance : new ArrayList<>(player.getActiveEffects())) {
+            if (isKeptFallenEffect(effectInstance.getEffect())) continue;
+
             boolean hasMatch = effectTypeList.contains(effectInstance.getEffect().getCategory().toString());
             if (!hasMatch){
                 hasMatch = ReviveMeConfig.revertEffectBlacklist.stream().anyMatch(listString ->
@@ -867,6 +921,12 @@ public class FallenCapability {
 
         cNBT.putBoolean(IS_EFFECTS_REMOVED, this.isEffectsRemoved);
 
+        CompoundTag keptFallenEffectsTag = new CompoundTag();
+        for (int i = 0; i < this.keptFallenEffects.size(); i++) {
+            keptFallenEffectsTag.putString(Integer.toString(i), this.keptFallenEffects.get(i));
+        }
+        cNBT.put(KEPT_FALLEN_EFFECTS_TAG, keptFallenEffectsTag);
+
         cNBT.putBoolean(IS_CALL_TOGGLED_BOOL, this.isCallToggled);
 
         if (this.reviveStack != null) cNBT.put(REVIVE_STACK_ITEMSTACK, this.reviveStack.serializeNBT());
@@ -936,6 +996,13 @@ public class FallenCapability {
         this.isDownedByPlayer = cNBT.getBoolean(DOWNED_BY_PLAYER_BOOL);
 
         this.isEffectsRemoved = cNBT.getBoolean(IS_EFFECTS_REMOVED);
+
+        this.keptFallenEffects.clear();
+        CompoundTag keptFallenEffectsTag = cNBT.getCompound(KEPT_FALLEN_EFFECTS_TAG);
+        for (String key : keptFallenEffectsTag.getAllKeys()) {
+            String effectID = keptFallenEffectsTag.getString(key);
+            if (!effectID.isEmpty()) this.keptFallenEffects.add(effectID);
+        }
 
         this.isCallToggled = cNBT.getBoolean(IS_CALL_TOGGLED_BOOL);
 
