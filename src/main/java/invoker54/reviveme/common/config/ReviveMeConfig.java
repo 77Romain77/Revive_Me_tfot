@@ -136,6 +136,7 @@ public final class ReviveMeConfig {
     public static Integer pvpTimer;
     public static boolean revertEffectsOnRevive;
     public static List<? extends String> revertEffectBlacklist;
+    public static List<? extends String> fallenEffectBlacklist;
     public static List<String> downedEffects;
     public static List<String> blockedCommands;
     public static List<String> allowedKeybinds;
@@ -258,6 +259,7 @@ public final class ReviveMeConfig {
         pvpTimer = COMMON.pvpTimer.get();
         revertEffectsOnRevive = COMMON.revertEffectsOnRevive.get();
         revertEffectBlacklist = COMMON.revertEffectBlacklist.get();
+        fallenEffectBlacklist = COMMON.fallenEffectBlacklist.get();
         downedEffects = (List<String>) COMMON.downedEffects.get();
         blockedCommands = (List<String>) COMMON.blockedCommands.get();
         allowedKeybinds = (List<String>) COMMON.allowedKeybinds.get();
@@ -561,6 +563,7 @@ public final class ReviveMeConfig {
         public final ForgeConfigSpec.ConfigValue<Integer> pvpTimer;
         public final ForgeConfigSpec.ConfigValue<Boolean> revertEffectsOnRevive;
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> revertEffectBlacklist;
+        public final ForgeConfigSpec.ConfigValue<List<? extends String>> fallenEffectBlacklist;
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> downedEffects;
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> blockedCommands;
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> allowedKeybinds;
@@ -675,6 +678,9 @@ public final class ReviveMeConfig {
             reviveRadius = builder.comment("Max distance another player can be to enter the fallen state (0 disables this)").defineInRange("Revive_Radius", 0,0,Integer.MAX_VALUE);
             runDeathEventFirst = builder.comment("If Forge's Death Event should run first before this mod does (if Death event runs first and player death is cancelled, Revive-Me code will not execute. Same thing vice-versa.)")
                     .define("Run_Death_Event_First", false);
+            fallenEffectBlacklist = builder.comment("What existing potion effects should NOT remain active while fallen. Add \"//\" to make it a whitelist instead, so only matching effects remain active. Add ';MobEffectCategory;' to block/allow effect categories. " +
+                    "Usage: (ModId:PotionEffect) 'minecraft:night_vision' or 'night_vision' or 'minecraft'. Usage2: (MobEffectCategory) ';HARMFUL;' or ';NEUTRAL;' or ';BENEFICIAL;'. The default list only contains '//', which preserves the original behavior and removes all existing effects when entering the fallen state.")
+                    .defineList("Fallen_Effect_Blacklist", new ArrayList<>(Arrays.asList("//")), a -> !a.toString().isEmpty());
             downedEffects = builder.comment("Potion effects the player has while fallen (ModId:PotionEffect:Amplification:HideEffect <-optional)(minecraft:slowness:0 or minecraft:blindness:0:true)").defineList("Downed_Effects",
                     new ArrayList<String>(ImmutableList.of("minecraft:slowness:3:true")), a -> !a.toString().isEmpty());
             dieOnDisconnect = builder.comment("If you should die instantly if you disconnect while in the fallen state").define("Die_On_Disconnect", false);
