@@ -173,7 +173,7 @@ public class ReviveConfigData {
         //endregion
 
         //Remove all potion effects
-        cap.removeOriginalEffects(true);
+        cap.removeOriginalEffects(true, true);
         //Load the saved effects
         cap.loadEffects(fallen);
 
